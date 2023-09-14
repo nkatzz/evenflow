@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
 import graphviz
 
+
 def get_rules(tree, feature_names, class_names):
     """Extract the rules from the tree"""
     tree_ = tree.tree_
@@ -18,9 +19,9 @@ def get_rules(tree, feature_names, class_names):
 
     paths = []
     path = []
-    
+
     def recurse(node, path, paths):
-        
+
         if tree_.feature[node] != _tree.TREE_UNDEFINED:
             name = feature_name[node]
             threshold = tree_.threshold[node]
@@ -32,37 +33,36 @@ def get_rules(tree, feature_names, class_names):
         else:
             path += [(tree_.value[node], tree_.n_node_samples[node])]
             paths += [path]
-            
+
     recurse(0, path, paths)
 
     # sort by samples count
     samples_count = [p[-1][1] for p in paths]
     ii = list(np.argsort(samples_count))
     paths = [paths[i] for i in reversed(ii)]
-    
+
     for p in paths:
-        print(p) 
-    
+        print(p)
+
     rules = []
     for path in paths:
         rule = "if "
-        
+
         for p in path[:-1]:
             if rule != "if ":
                 rule += " and "
             rule += str(p)
         rule += " then "
         if class_names is None:
-            rule += "response: "+str(np.round(path[-1][0][0][0],3))
+            rule += "response: " + str(np.round(path[-1][0][0][0], 3))
         else:
             classes = path[-1][0][0]
             l = np.argmax(classes)
-            rule += f"class: {class_names[l]} (prob: {np.round(100.0*classes[l]/np.sum(classes),2)}%)"
+            rule += f"class: {class_names[l]} (prob: {np.round(100.0 * classes[l] / np.sum(classes), 2)}%)"
         rule += f" | based on {path[-1][1]:,} samples"
         rules += [rule]
-        
-    return rules
 
+    return rules
 
 
 train = pd.read_csv('/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/DemoDataset_1Robot.csv')
@@ -96,8 +96,8 @@ f1_none = f1_score(actual, predicted, average=None)
 print(f'Macro F1-score: {f1_macro}\nMicro F1-score:{f1_micro}\nPer class:{f1_none}')
 
 # Visualize the tree
-dot_data = tree.export_graphviz(clf, out_file=None, feature_names=features, 
-                                class_names=class_names, filled=True, rounded=True, 
+dot_data = tree.export_graphviz(clf, out_file=None, feature_names=features,
+                                class_names=class_names, filled=True, rounded=True,
                                 special_characters=True)
 # graph = graphviz.Source(dot_data)
 # graph.view()
@@ -106,5 +106,3 @@ text_representation = tree.export_text(clf, feature_names=features)
 print(f'\nThe tree is:\n{text_representation}')
 rules = '\n'.join(get_rules(clf, features, class_names))
 print(f"""\nThe rules are:\n{rules}""")
-
-
