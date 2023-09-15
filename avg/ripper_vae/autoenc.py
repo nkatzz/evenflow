@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
+from avg.neural_models.autoencoder import Autoencoder
 
 """
 Trains a simple autoencoder on the DFKI dataset.
@@ -35,27 +36,6 @@ val_dataset = TensorDataset(val_tensors, val_tensors)
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=32)
 
-# Define the autoencoder model
-class Autoencoder(nn.Module):
-    def __init__(self):
-        super(Autoencoder, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Linear(10, 7),
-            nn.ReLU(),
-            nn.Linear(7, 5),
-            nn.ReLU()
-        )
-        
-        self.decoder = nn.Sequential(
-            nn.Linear(5, 7),
-            nn.ReLU(),
-            nn.Linear(7, 10)
-        )
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
 
 model = Autoencoder()
 
@@ -74,8 +54,8 @@ for epoch in range(num_epochs):
         loss = criterion(outputs, batch_features)
         loss.backward()
         optimizer.step()
-    
-    print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
+
+    print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {loss.item():.4f}")
 
 print('Training completed!')
 
@@ -85,7 +65,7 @@ print('Training completed!')
 
 # Convert dataset to torch tensor
 train_data_tensor = torch.tensor(train_data_scaled, dtype=torch.float32)
-val_data_tensor = torch.tensor(val_data_scaled, dtype=torch.float32)  
+val_data_tensor = torch.tensor(val_data_scaled, dtype=torch.float32)
 
 # Get the reconstructed data from the autoencoder
 with torch.no_grad():
@@ -112,7 +92,8 @@ with torch.no_grad():
     latent_features = encoder(data_tensor).numpy()
 
 # Convert latent features to a DataFrame
-latent_features_df = pd.DataFrame(latent_features, columns=[f"latent_feature_{i+1}" for i in range(latent_features.shape[1])])
+latent_features_df = pd.DataFrame(latent_features,
+                                  columns=[f"latent_feature_{i + 1}" for i in range(latent_features.shape[1])])
 
 # Add the "goal_status" column to the DataFrame
 latent_features_df['goal_status'] = data['goal_status'].values
@@ -121,5 +102,3 @@ latent_features_df['goal_status'] = data['goal_status'].values
 csv_path = "/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/latent_features_dataset.csv"
 latent_features_df.to_csv(csv_path, index=False)
 print(f"The latent features dataset was saved at {csv_path}")
-
-

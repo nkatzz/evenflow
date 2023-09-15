@@ -1,15 +1,17 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import pandas as pd
 import numpy as np
 import wittgenstein as lw
+from avg.ripper_vae.vae_simple import VAE
 
 """
 Trains a VAE on the DFKI dataset, recosntructs the dataset through the encoder, trains RIPPER
 on the lower-dimentionality latent features and combines RIPPER's loss with the VAE loss in a 
-joint training loop. This uses the simple VAE architecture from vae_simple.py
+joint training loop. 
+
+This uses the simple VAE architecture from vae_simple.py
 """
 
 data = pd.read_csv('/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/DemoDataset_1Robot.csv')
@@ -19,38 +21,6 @@ y_train = data['goal_status']
 
 # Convert the data to PyTorch tensors
 X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
-
-
-class VAE(nn.Module):
-    def __init__(self, input_dim, hidden_dim, latent_dim):
-        super(VAE, self).__init__()
-
-        # Encoder layers
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc_mean = nn.Linear(hidden_dim, latent_dim)
-        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
-
-        # Decoder layers
-        self.fc2 = nn.Linear(latent_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, input_dim)
-
-    def encode(self, x):
-        h = F.relu(self.fc1(x))
-        return self.fc_mean(h), self.fc_logvar(h)
-
-    def reparameterize(self, mean, logvar):
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        return mean + eps * std
-
-    def decode(self, z):
-        h = F.relu(self.fc2(z))
-        return torch.sigmoid(self.fc3(h))
-
-    def forward(self, x):
-        mean, logvar = self.encode(x)
-        z = self.reparameterize(mean, logvar)
-        return self.decode(z), mean, logvar
 
 
 # 4. Training RIPPER in an OvA fashion
@@ -72,6 +42,8 @@ def train_ripper_ovr(data, unique_classes):
             accuracies.append(accuracy)
             model_complexity = sum([len(rule) for rule in ripper_clf.ruleset_])
             complexities.append(model_complexity)
+            print(f'Class: {cls}, Accuracy: {accuracy}%, Rules:\n{ripper_clf.ruleset_}')
+            print("-" * 100)
 
     avg_accuracy = np.mean(accuracies) if accuracies else 0
     total_complexity = sum(complexities) if complexities else 0
@@ -98,15 +70,17 @@ def train_vae_combined(vae, X_train_tensor, y_train, optimizer, unique_classes, 
             latent_df['goal_status'] = y_train.values.astype(str)  # Convert goal_status to string
 
         avg_accuracy, total_complexity = train_ripper_ovr(latent_df, unique_classes)
-        print(f'Avg ac: {avg_accuracy}, compl: {total_complexity}')
         ripper_loss = (1 - avg_accuracy) + total_complexity * alpha
         combined_loss = vae_loss + ripper_loss
 
         combined_loss.backward()
         optimizer.step()
 
-        print(
-            f"Epoch {epoch}/{epochs}, VAE Loss: {vae_loss.item()}, RIPPER Loss: {ripper_loss}, Combined Loss: {combined_loss.item()}")
+        print("*" * 100)
+        print(f'\nRIPPER Average accuracy: {avg_accuracy}, Model size: {total_complexity} literals')
+        print(f"Epoch {epoch}/{epochs}, VAE Loss: {vae_loss.item()}, RIPPER Loss: {ripper_loss}, "
+              f"Combined Loss: {combined_loss.item()}\n")
+        print("*" * 100)
 
     # Save the final latent representation of the dataset to CSV
     with torch.no_grad():
@@ -118,7 +92,8 @@ def train_vae_combined(vae, X_train_tensor, y_train, optimizer, unique_classes, 
                                index=False)
 
 
-vae_model = VAE(input_dim=10, hidden_dim=20, latent_dim=4)
-optimizer = optim.Adam(vae_model.parameters(), lr=0.001)
-unique_classes = y_train.unique()
-train_vae_combined(vae_model, X_train_tensor, y_train, optimizer, unique_classes, epochs=1000)
+if __name__ == "__main__":
+    vae_model = VAE(input_dim=10, hidden_dim=20, latent_dim=4)
+    optimizer = optim.Adam(vae_model.parameters(), lr=0.001)
+    unique_classes = y_train.unique()
+    train_vae_combined(vae_model, X_train_tensor, y_train, optimizer, unique_classes, epochs=1000)
