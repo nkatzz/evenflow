@@ -3,9 +3,9 @@ import torch
 import torch.nn.functional as F
 
 
-class VAE(nn.Module):
+class SimpleVAE(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim):
-        super(VAE, self).__init__()
+        super(SimpleVAE, self).__init__()
 
         # Encoder layers
         self.fc1 = nn.Linear(input_dim, hidden_dim)

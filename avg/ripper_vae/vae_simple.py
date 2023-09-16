@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import pandas as pd
-from avg.neural_models.vae_simple import VAE
+from avg.neural_models.vae_simple import SimpleVAE
 
 """
 Trains a simple VAE on the DFKI dataset.
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     val_loader = DataLoader(TensorDataset(X_val, X_val), batch_size=32)
 
     # Initialize the VAE and optimizer
-    vae_model = VAE(input_dim=10, hidden_dim=6, latent_dim=bottleneck)
+    vae_model = SimpleVAE(input_dim=10, hidden_dim=6, latent_dim=bottleneck)
     optimizer = torch.optim.Adam(vae_model.parameters(), lr=0.0001)
 
     # Training loop

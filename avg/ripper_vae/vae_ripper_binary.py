@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import wittgenstein as lw
 from avg.neural_models.vae_1 import BinaryVAE
+from avg.neural_models.vae_2 import EnhancedVAE
+from avg.neural_models.vae_simple import SimpleVAE
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
@@ -33,7 +35,8 @@ def pre_training(vae, data, optimizer, epochs=5):
         vae_loss.backward()
         optimizer.step()
 
-        print(f"VAE pre-training Epoch {epoch + 1}/{epochs}, VAE Loss: {vae_loss.item()}")
+        print(f"VAE pre-training Epoch {epoch + 1}/{epochs}, VAE Loss: {vae_loss.item()} "
+              f"(MSE: {reconstruction_loss}), KLD: {kl_divergence}")
 
 
 def prepare_ripper_input(vae, x_train_tensor, x_test_tensor, y_train, y_test):
@@ -195,7 +198,7 @@ if __name__ == "__main__":
 
     # Standard in a staged approach. Set this to False to get joint training from the start
     pretraining = True
-    pretraining_epochs = 50
+    pretraining_epochs = 100000
 
     training_epochs = 1000
     with_scaling = False  # If true much larger RIPPER models tend to be learnt.
@@ -237,7 +240,10 @@ if __name__ == "__main__":
         X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
         X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
 
-    vae_model = BinaryVAE(input_dim=X_train_tensor.shape[1], hidden_dims=[20, 15], latent_dim=4, binary=True)
+    # vae_model = BinaryVAE(input_dim=X_train_tensor.shape[1], hidden_dims=[20, 15], latent_dim=4, binary=True)
+    vae_model = SimpleVAE(input_dim=X_train_tensor.shape[1], hidden_dim=7, latent_dim=4)
+    # vae_model = EnhancedVAE(input_dim=X_train_tensor.shape[1], hidden_dims=[64, 128, 256], latent_dim=7, binary=True)
+
     optimizer = optim.Adam(vae_model.parameters(), lr=0.001)
 
     if pretraining:

@@ -4,7 +4,7 @@ import torch.optim as optim
 import pandas as pd
 import numpy as np
 import wittgenstein as lw
-from avg.ripper_vae.vae_simple import VAE
+from avg.ripper_vae.vae_simple import SimpleVAE
 
 """
 Trains a VAE on the DFKI dataset, recosntructs the dataset through the encoder, trains RIPPER
@@ -93,7 +93,7 @@ def train_vae_combined(vae, X_train_tensor, y_train, optimizer, unique_classes, 
 
 
 if __name__ == "__main__":
-    vae_model = VAE(input_dim=10, hidden_dim=20, latent_dim=4)
+    vae_model = SimpleVAE(input_dim=10, hidden_dim=20, latent_dim=4)
     optimizer = optim.Adam(vae_model.parameters(), lr=0.001)
     unique_classes = y_train.unique()
     train_vae_combined(vae_model, X_train_tensor, y_train, optimizer, unique_classes, epochs=1000)
