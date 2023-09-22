@@ -9,6 +9,7 @@ from sklearn.tree import _tree
 from sklearn.metrics import f1_score
 from sklearn.metrics import confusion_matrix
 
+
 # Function to extract decision rules
 def extract_rules(tree, feature_names):
     tree_ = tree.tree_
@@ -25,9 +26,9 @@ def extract_rules(tree, feature_names):
             threshold = tree_.threshold[node]
             p1, p2 = list(path), list(path)
             p1 += [f"({name} <= {threshold})"]
-            recurse(tree_.children_left[node], p1, path_ids+[0])
+            recurse(tree_.children_left[node], p1, path_ids + [0])
             p2 += [f"({name} > {threshold})"]
-            recurse(tree_.children_right[node], p2, path_ids+[1])
+            recurse(tree_.children_right[node], p2, path_ids + [1])
         else:
             path += [(tree_.value[node], tree_.weighted_n_node_samples[node])]
             paths.append(path)
@@ -39,9 +40,8 @@ def extract_rules(tree, feature_names):
     samples_count = [p[-1][1] for p in paths]
     ii = list(np.argsort(samples_count))
     paths = [paths[i] for i in reversed(ii)]
-    
-    return paths
 
+    return paths
 
 
 data_path = '/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/DemoDataset_1Robot.csv'
@@ -63,9 +63,6 @@ y = df['goal_status']
 # Split the dataset into a training set and a test set
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# Check the size of the training set and the test set
-X_train.shape, X_test.shape
-
 # Instantiate the DecisionTreeClassifier
 clf = DecisionTreeClassifier(random_state=42)
 
@@ -73,7 +70,7 @@ clf = DecisionTreeClassifier(random_state=42)
 clf.fit(X_train, y_train)
 
 # Set the size of the figure
-plt.figure(figsize=(20,10))
+plt.figure(figsize=(20, 10))
 
 # Plot the tree
 """
@@ -108,16 +105,17 @@ rules = extract_rules(clf, features)
 for r in rules:
     print(r)
 
-
 # Get the class labels
 class_labels = clf.classes_
 
 # Display the class labels
 print(class_labels)
 
+
 # Function to get class label from a rule
 def get_class_label(rule):
     return np.argmax(rule[-1][0])
+
 
 # Group rules by class label
 rules_by_class = {label: [] for label in class_labels}
@@ -127,7 +125,7 @@ for rule in rules:
 
 # Display the rules, grouped by class
 for class_label, rules in rules_by_class.items():
-    print(f"\nClass: {class_label}\n")
+    print(f"\nClass: {class_label}")
     for rule in rules:
         conditions = " & ".join(rule[:-1])
         print(f"{class_label} <-- {conditions}")

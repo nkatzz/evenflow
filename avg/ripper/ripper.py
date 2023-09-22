@@ -1,18 +1,16 @@
 import pandas as pd
 import wittgenstein as lw
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
 
-"""
-This uses the RIPPER implementation in the wittgenstein package. RIPPER is designed for binary classification,
-so we're using an one-against-all approach here, to learn decision rules for each class.
-"""
+dataset = pd.read_csv('/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/latent_features_dataset.csv')
+# dataset = pd.read_csv('/home/nkatz/dev/evenflow/avg/vq_vae_triplet_loss/latent_representation_multi.csv')
+# dataset = pd.read_csv('/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/latent_features_vae_dataset.csv')
+# dataset = pd.read_csv('/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/latent_features_vae_ripper_dataset.csv')
 
-# Load the dataset
-dataset = pd.read_csv('/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/DemoDataset_1Robot.csv')
-
-# Extract the specified columns as features and 'goal_status' as labels
-features = dataset[['px', 'py', 'pz', 'ox', 'oy', 'oz', 'ow', 'vx', 'vy', 'wz']]
-labels = dataset['goal_status']
+features = dataset.iloc[:, :-1]
+labels = dataset.iloc[:, -1]
 
 # Split the dataset into training and test sets (70/30 split)
 X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.3, random_state=42)
@@ -26,27 +24,32 @@ predictions = {}
 
 for uc in unique_classes:
     print(f"Training for class: {uc}")
-    
-    # Create binary labels
+
+    # Create binary labels. This is needed for the confusion_matrix method to work
     y_train_binary = (y_train == uc).astype(int)
     y_test_binary = (y_test == uc).astype(int)
-    
-    # Initialize and train the RIPPER model
+
     ripper_clf = lw.RIPPER()
     ripper_clf.fit(X_train, y_train_binary, pos_class=1)
-    
+
     # Predict on the test set
     y_pred = ripper_clf.predict(X_test)
-    
+
     # Store the classifier and predictions
     classifiers[uc] = ripper_clf
     predictions[uc] = y_pred
 
-    # Display accuracy for this class
-    accuracy = (y_pred == y_test_binary).mean()
-    print(f"Accuracy for {uc}: {accuracy:.4f}")
+    # accuracy = (y_pred == y_test_binary).mean()
+    # print(f"Accuracy for {uc}: {accuracy:.4f}")
 
-    # Display the learned rules
+    conf_matrix = confusion_matrix(y_test_binary, y_pred)
+    TPs = conf_matrix[1, 1]
+    FPs = conf_matrix[0, 1]
+    FNs = conf_matrix[1, 0]
+
+    print(f'F1-score: {f1_score(y_test_binary, y_pred)} (TPs, FPs, FNs: {TPs, FPs, FNs})')
+    #print(conf_matrix)
+
     print(ripper_clf.ruleset_)
     print("-" * 50)
 

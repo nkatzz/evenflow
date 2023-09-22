@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import pandas as pd
-from avg.neural_models.vae_simple import SimpleVAE
+from avg.neural.nns import SimpleVAE
 
 """
 Trains a simple VAE on the DFKI dataset.
@@ -17,41 +17,58 @@ data_tensor = torch.tensor(data_relevant_scaled, dtype=torch.float32)
 
 
 def vae_loss(recon_x, x, mean, logvar):
-    recon_loss = F.mse_loss(recon_x, x, reduction='sum')
+    recon_loss = F.mse_loss(recon_x, x, reduction='mean')
     kld_loss = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
     return recon_loss, kld_loss
 
 
 if __name__ == "__main__":
-    bottleneck = 3
+    bottleneck = 4
 
     X_train, X_val = train_test_split(data_tensor, test_size=0.2, random_state=42)
     train_loader = DataLoader(TensorDataset(X_train, X_train), batch_size=32, shuffle=True)
     val_loader = DataLoader(TensorDataset(X_val, X_val), batch_size=32)
 
-    # Initialize the VAE and optimizer
-    vae_model = SimpleVAE(input_dim=10, hidden_dim=6, latent_dim=bottleneck)
+    vae_model = SimpleVAE(input_dim=10, hidden_dim=7, latent_dim=bottleneck)
     optimizer = torch.optim.Adam(vae_model.parameters(), lr=0.0001)
+
+    X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
 
     # Training loop
     num_epochs = 1000
     for epoch in range(num_epochs):
         vae_model.train()
-        train_loss = 0
-        recon_loss = 0
-        kld = 0
-        for batch_data, _ in train_loader:
+
+        optimizer.zero_grad()
+        recon, mean, logvar = vae_model(X_train_tensor)
+        mse, kld = vae_loss(recon, X_train_tensor, mean, logvar)
+        loss = mse + kld / len(X_train_tensor)
+        loss.backward()
+        optimizer.step()
+
+        print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {loss:.6f}, "
+              f"MSE loss: {mse}, KLD: {kld / len(X_train_tensor)}")
+
+        # This uses mini-batches. It is much less efficient due to the overhead of handling the
+        # mini-batches, without any obvious regularization advantage
+        """
+        train_loss = []
+        recon_loss = []
+        kld_loss = []
+        for batch, _ in train_loader:
             optimizer.zero_grad()
-            recon_batch, mean, logvar = vae_model(batch_data)
-            loss_1, loss_2 = vae_loss(recon_batch, batch_data, mean, logvar)
-            loss = loss_1 + loss_2
-            train_loss += loss.item()
-            recon_loss += loss_1
-            kld += loss_2
+            recon_batch, mean, logvar = vae_model(batch)
+            mse, kld = vae_loss(recon_batch, batch, mean, logvar)
+            loss = mse + kld
+            train_loss.append(loss.item())
+            recon_loss.append(mse)
+            kld_loss.append(kld.item())
             loss.backward()
             optimizer.step()
-        print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss / len(X_train):.6f}, "
-              f"MSE loss: {recon_loss/len(X_train)}, KLD: {kld/len(X_train)}")
+        
+        print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {sum(train_loss) / len(train_loss):.6f}, "
+              f"MSE loss: {sum(recon_loss)/len(recon_loss)}, KLD: {sum(kld_loss)/len(kld_loss)}")
+        """
 
     # Extract latent features
     vae_model.eval()

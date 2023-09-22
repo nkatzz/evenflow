@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import pandas as pd
-from avg.neural_models.vae_1 import BinaryVAE
+from avg.neural.nns import BinaryVAE
 from avg.ripper_vae.vae_simple import vae_loss
 
 """

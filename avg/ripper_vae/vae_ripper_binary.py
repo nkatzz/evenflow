@@ -4,11 +4,12 @@ import torch.optim as optim
 import pandas as pd
 import numpy as np
 import wittgenstein as lw
-from avg.neural_models.vae_1 import BinaryVAE
-from avg.neural_models.vae_2 import EnhancedVAE
-from avg.neural_models.vae_simple import SimpleVAE
+from torch.utils.data import TensorDataset, DataLoader
+from avg.neural.nns import SimpleVAE, BinaryVAE
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
 
 """
 Similar to vae_ripper, but uses binary latent features in an effort to learn simpler RIPPER models.
@@ -97,15 +98,19 @@ def train_ripper_ovr(train_data, test_data, unique_classes):
 
             # Evaluate on the training data
             train_set_predictions = ripper_clf.predict(training_data)
-            train_set_accuracy = (train_set_predictions == training_data['goal_status']).mean()
+            # train_set_accuracy = (train_set_predictions == training_data['goal_status']).mean()
+
+            f1_score_train = f1_score(train_set_predictions, training_data['goal_status'])
 
             # Evaluate on the testing set
             test_set_predictions = ripper_clf.predict(testing_data)
-            test_set_accuracy = (test_set_predictions == testing_data['goal_status']).mean()
+            # test_set_accuracy = (test_set_predictions == testing_data['goal_status']).mean()
+
+            f1_score_test = f1_score(test_set_predictions, testing_data['goal_status'])
 
             model_size = sum([len(rule) for rule in ripper_clf.ruleset_])
 
-            ripper_results[cls] = (train_set_accuracy, test_set_accuracy, model_size, ripper_clf.ruleset_)
+            ripper_results[cls] = (f1_score_train, f1_score_test, model_size, ripper_clf.ruleset_)
 
     return ripper_results
 
@@ -157,11 +162,11 @@ def train_vae_combined(vae, X_train_tensor, X_test_tensor, y_train, y_test, opti
 
         ripper_results = train_ripper_ovr(x_train_reconstructed, x_test_reconstructed, unique_classes)
 
-        avg_train_acc = sum(entry[0] for entry in ripper_results.values()) / len(ripper_results)
-        avg_test_acc = sum(entry[1] for entry in ripper_results.values()) / len(ripper_results)
+        avg_train_f1 = sum(entry[0] for entry in ripper_results.values()) / len(ripper_results)
+        avg_test_f1 = sum(entry[1] for entry in ripper_results.values()) / len(ripper_results)
         model_size = sum(entry[2] for entry in ripper_results.values())
 
-        ripper_loss = (1 - avg_train_acc) + model_size * alpha
+        ripper_loss = (1 - avg_train_f1) + model_size * alpha
         combined_loss = vae_loss + ripper_loss
 
         # for name, param in vae.named_parameters():
@@ -175,12 +180,12 @@ def train_vae_combined(vae, X_train_tensor, X_test_tensor, y_train, y_test, opti
 
         print(
             f"\nEpoch {epoch}/{epochs}\nVAE -- Loss: {vae_loss.item()} (MSE: {reconstruction_loss} | KLD: {kl_divergence})\n"
-            f"RIPPER -- Avg Accuracy (train, test): ({avg_train_acc}, {avg_test_acc}), Model Size: {model_size},"
+            f"RIPPER -- Macro F1 (train, test): ({avg_train_f1}, {avg_test_f1}), Model Size: {model_size},"
             f" Loss: {ripper_loss}\n"
             f"Combined VAE + RIPPER Loss: {combined_loss.item()}\n\nRIPPER Model:")
 
         for (k, v) in ripper_results.items():
-            print(f'Class: {k}, Accuracy (train | test): ({v[0]} | {v[1]})')
+            print(f'Class: {k}, F1 (train | test): ({v[0]} | {v[1]})')
             print(v[3])
             print("-" * 50)
 
@@ -198,10 +203,10 @@ if __name__ == "__main__":
 
     # Standard in a staged approach. Set this to False to get joint training from the start
     pretraining = True
-    pretraining_epochs = 100000
+    pretraining_epochs = 100
 
     training_epochs = 1000
-    with_scaling = False  # If true much larger RIPPER models tend to be learnt.
+    with_scaling = True  # If true much larger RIPPER models tend to be learnt.
 
     data = pd.read_csv('/media/nkatz/storage/EVENFLOW-DATA/DFKI/new-3-8-2023/DemoDataset_1Robot.csv')
     features = ['px', 'py', 'pz', 'ox', 'oy', 'oz', 'ow', 'vx', 'vy', 'wz']
@@ -216,7 +221,7 @@ if __name__ == "__main__":
     single_instance_class = counts[counts == 1].index[0]
 
     # Separate out the single instance
-    single_instance_df = data[data['goal_status'] == single_instance_class]
+    # single_instance_df = data[data['goal_status'] == single_instance_class]
     data_ = data[data['goal_status'] != single_instance_class]
 
     # Make sure to use the stratify arg to ensure that the distribution of all classes
@@ -240,8 +245,8 @@ if __name__ == "__main__":
         X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
         X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
 
-    # vae_model = BinaryVAE(input_dim=X_train_tensor.shape[1], hidden_dims=[20, 15], latent_dim=4, binary=True)
-    vae_model = SimpleVAE(input_dim=X_train_tensor.shape[1], hidden_dim=7, latent_dim=4)
+    vae_model = BinaryVAE(input_dim=X_train_tensor.shape[1], hidden_dims=[20, 15], latent_dim=6, binary=True)
+    # vae_model = SimpleVAE(input_dim=X_train_tensor.shape[1], hidden_dim=7, latent_dim=6)
     # vae_model = EnhancedVAE(input_dim=X_train_tensor.shape[1], hidden_dims=[64, 128, 256], latent_dim=7, binary=True)
 
     optimizer = optim.Adam(vae_model.parameters(), lr=0.001)
